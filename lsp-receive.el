@@ -262,9 +262,7 @@ Else it is queued (unless DONT-QUEUE is non-nil)"
 
           (dolist (m messages)
             (when lsp-print-io (message "Output from language server: %s" m))
-            (lsp--parser-on-message p m))))
-      (when (lsp--parser-waiting-for-response p)
-        (with-local-quit (accept-process-output proc)))))
+            (lsp--parser-on-message p m))))))
 
 (declare-function lsp--client-notification-handlers "lsp-methods" (client))
 (declare-function lsp--client-request-handlers "lsp-methods" (client))

@@ -31,12 +31,14 @@
   (when (memq (process-status proc) '(stop exit closed failed nil))
     (error "%s: Cannot communicate with the process (%s)" (process-name proc)
            (process-status proc)))
-  (process-send-string proc
-                       message)
+  (process-send-string proc message)
 
   (setq lsp--no-response t)
-  (with-local-quit
-    (accept-process-output proc lsp-response-timeout))
+  (let ((c 10))
+    (while (and lsp--no-response (> c 0))
+      (with-local-quit
+        (accept-process-output proc lsp-response-timeout))
+      (setq c (- c 1))))
   (when lsp--no-response
     (signal 'lsp-timed-out-error nil)))
 
