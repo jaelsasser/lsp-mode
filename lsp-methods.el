@@ -1113,6 +1113,15 @@ https://github.com/Microsoft/language-server-protocol/blob/master/protocol.md#co
 	item))
     item))
 
+(defun lsp--location-to-xref (location)
+  "Convert Location object LOCATION to an `xref-item'.
+interface Location {
+	uri: string;
+	range: Range;
+}"
+  (let ((uri (string-remove-prefix "file://" (gethash "uri" location))))
+    (lsp--xref-make-item uri location)))
+
 (defun lsp--extract-line-from-buffer (pos)
   "Return a line from the current buffer.
 POS is a LSP position on the line."
