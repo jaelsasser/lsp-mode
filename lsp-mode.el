@@ -29,25 +29,50 @@
 (require 'lsp-send)
 (require 'cl-lib)
 (require 'network-stream)
+(require 'tramp)
 
 (defvar lsp-version-support "3.0"
   "This is the version of the Language Server Protocol currently supported by ‘lsp-mode’.")
+
+(defcustom lsp-log-stderr nil
+  "If non-nil, log stderr of LSP clients to a dedicated buffer."
+  :type 'boolean
+  :group 'lsp-mode)
+
+(defun lsp-should-log-stderr ()
+  "Returns non-nil if lsp-mode should capture stderr."
+  (and lsp-log-stderr
+       (not (file-remote-p default-directory))))
+
+(defun lsp--make-process (name command filter sentinel)
+  "Tramp-aware version of make-process.
+
+NAME: name of the command
+
+COMMAND: cons
+"
+  (if (lsp-should-log-stderr)
+      (make-process
+       :name name
+       :connection-type 'pipe
+       :coding 'no-conversion
+       :command command
+       :filter filter
+       :stderr (generate-new-buffer-name (concat "*" name " stderr*"))
+       :noquery t)
+    (let* ((stdout (get-buffer-create (concat "*" name " stdout*")))
+           (command (append command '("2>/tmp/stderr.log")))
+           (proc (apply #'start-file-process-shell-command name stdout command)))
+      (set-process-filter proc filter)
+      (set-process-sentinel proc sentinel)
+      (set-process-query-on-exit-flag proc nil)
+      proc)))
 
 (defun lsp--make-stdio-connection (name command command-fn)
   (lambda (filter sentinel)
     (let* ((command (if command-fn (funcall command-fn) command))
            (final-command (if (consp command) command (list command))))
-      (unless (executable-find (nth 0 final-command))
-        (error (format "Couldn't find executable %s" (nth 0 final-command))))
-      (make-process
-       :name name
-       :connection-type 'pipe
-       :coding 'no-conversion
-       :command final-command
-       :filter filter
-       :sentinel sentinel
-       :stderr (generate-new-buffer-name (concat "*" name " stderr*"))
-       :noquery t))))
+      (lsp--make-process name final-command filter sentinel))))
 
 (defun lsp--make-tcp-connection (name command command-fn host port)
   (lambda (filter sentinel)
@@ -111,8 +136,8 @@ GET-ROOT is the language-specific function to determint the project root for the
 (cl-defmacro lsp-define-stdio-client (name language-id get-root command
                                        &key docstring
                                        language-id-fn
-                                       command-fn
                                        ignore-regexps
+                                       command-fn
                                        extra-init-params
                                        initialize)
   "Define a LSP client using stdio.
@@ -120,15 +145,15 @@ NAME is the symbol to use for the name of the client.
 LANGUAGE-ID is the language id to be used when communication with
 the Language Server.  COMMAND is the command to run.
 
+COMMAND is either a string, a list of string, or a function that returns
+a string.
+
 Optional arguments:
 `:docstring' is an optional docstring used for the entrypoint function created by
 `lsp-define-stdio-client'.
 
 `:ignore-regexps' is a list of regexps which when matched will be ignored by the
  output parser.
-
-`:command-fn' is a function that returns the command string/list to be used to
- launch the language server. If non-nil, COMMAND is ignored.
 
 `:language-id-fn' is a function that returns the language-id string to be used
  while opening a new file. If non-nil, LANGUAGE-ID is ignored.

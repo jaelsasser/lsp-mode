@@ -253,6 +253,7 @@ Else it is queued (unless DONT-QUEUE is non-nil)"
 
 (defun lsp--parser-make-filter (p ignore-regexps)
   #'(lambda (proc output)
+      (message "%s" output)
       (setq lsp--no-response nil)
       (when (cl-loop for r in ignore-regexps
                      ;; check if the output is to be ignored or not
@@ -270,10 +271,13 @@ Else it is queued (unless DONT-QUEUE is non-nil)"
                     (error "Error parsing language server output: %s" err))))))
 
           (dolist (m messages)
-            (when lsp-print-io (message "Output from language server: %s" m))
-            (lsp--parser-on-message p m))))
-      (when (lsp--parser-waiting-for-response p)
-        (with-local-quit (accept-process-output proc)))))
+            (lsp--parser-on-message p m)
+            (message "handled %s" m))))
+      ;(when lsp-print-io
+      ;  (internal-default-process-filter proc output))
+      ;(when (lsp--parser-waiting-for-response p)
+      ;  (with-local-quit (accept-process-output proc)))
+      ))
 
 (declare-function lsp--client-notification-handlers "lsp-methods" (client))
 (declare-function lsp--client-request-handlers "lsp-methods" (client))

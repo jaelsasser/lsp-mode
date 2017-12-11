@@ -15,6 +15,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'lsp-common)
 
 ;; vibhavp: Should we use a lower value (5)?
@@ -25,29 +26,25 @@
 
 (defvar lsp--no-response)  ; shared with lsp-receive.el
 
-(defun lsp--stdio-send-sync (message proc)
-  (when lsp-print-io
-    (message "lsp--stdio-send-sync: %s" message))
-  (when (memq (process-status proc) '(stop exit closed failed nil))
-    (error "%s: Cannot communicate with the process (%s)" (process-name proc)
-           (process-status proc)))
-  (process-send-string proc
-                       message)
-
-  (setq lsp--no-response t)
-  (with-local-quit
-    (accept-process-output proc lsp-response-timeout))
-  (when lsp--no-response
-    (signal 'lsp-timed-out-error nil)))
-
 (defun lsp--stdio-send-async (message proc)
   (when lsp-print-io
     (message "lsp--stdio-send-async: %s" message))
   (when (memq (process-status proc) '(stop exit closed failed nil))
     (error "%s: Cannot communicate with the process (%s)" (process-name proc)
            (process-status proc)))
-  (process-send-string proc
-                       message))
+  (process-send-string proc message))
+
+(defun lsp--stdio-send-sync (message proc)
+  (lsp--stdio-send-async message proc)
+  (setq lsp--no-response t)
+  (with-local-quit
+    (let* ((limit (/ lsp-response-timeout 0.1))
+           (retries 0))
+      (while (and lsp--no-response (< retries limit))
+        (accept-process-output proc 0.1)
+        (cl-incf retries))))
+  (when lsp--no-response
+    (signal 'lsp-timed-out-error nil)))
 
 (provide 'lsp-send)
 ;;; lsp-send.el ends here

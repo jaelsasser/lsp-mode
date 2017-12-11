@@ -135,7 +135,7 @@ for a new workspace."
   :group 'lsp-mode)
 
 (defcustom lsp-project-whitelist nil
-  "A list of project directories for which LSP shouldn be
+  "A list of project directories for which LSP shouldn b
 initialized. When set this turns off use of
 `lsp-project-blacklist'"
   :type '(repeat directory)
@@ -222,8 +222,9 @@ initialized. When set this turns off use of
 (define-inline lsp--make-request (method &optional params)
   "Create request body for method METHOD and parameters PARAMS."
   (inline-quote
-    (plist-put (lsp--make-notification ,method ,params)
-      :id (cl-incf (lsp--client-last-id (lsp--workspace-client lsp--cur-workspace))))))
+   (let* ((id (cl-incf (lsp--client-last-id
+                        (lsp--workspace-client lsp--cur-workspace)))))
+     (plist-put (lsp--make-notification ,method ,params) :id id))))
 
 (defun lsp--make-response-error (code message data)
   (cl-check-type code number)
@@ -308,9 +309,9 @@ interface TextDocumentItem {
     text: string;
 }"
   (inline-quote
-    (let ((language-id-fn (lsp--client-language-id (lsp--workspace-client lsp--cur-workspace))))
+   (let ((language-id (lsp--client-language-id (lsp--workspace-client lsp--cur-workspace))))
       (list :uri (concat "file://" buffer-file-name)
-	      :languageId (funcall language-id-fn (current-buffer))
+	      :languageId (funcall language-id (current-buffer))
 	      :version (lsp--cur-file-version)
 	      :text (buffer-substring-no-properties (point-min) (point-max))))))
 
